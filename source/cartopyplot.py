@@ -19,36 +19,41 @@ import cartopy.feature as cfeature
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 import datetime as dt
+
 import pandas   as pd
 
+import  os,sys
+
+import importlib
 
 #from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
-#used the user parameter to plot(plotparameter.py)
+#used the user parameter to plot(plotparameter.py) if para:
+#pars=__import__('source.Parameters_default',globals())
+pars=importlib.import_module('.Parameters_default','source',)
+print(pars.out_fig)
 
 
-plotdef='mapa1'
-#Latex width 
-wf=1.0
-hf=1.0
-cmmais=0.0
-#plot size of the figures
-#cmmais are the cm to put the cbbar  without modified the size of the fig
-projection=ccrs.PlateCarree(central_longitude=180.0, globe=None)
-#############plot formated
-# make the map global rather than have it zoom in to
-# the extents of any plotted data
-###################################3
 
+def cartopy_plot(data,varname,date_str=[],lats=[],lons=[],lev=[],vmulti=[],bcolor=[],lat=[],lon=[],plotname=[],color='RdBu_r',out='',cbar=True,para=[],figname=[],units=[],extend=[]):
 
-def cartopy_plot(data,varname,date_str=[],lats=[],lons=[],lev=[],bcolor=[],lat=[],lon=[],plotname='',figname='',color='RdBu_r',out='',cbar=True):
+    global pars
+
+    if not extend:
+        extend=pars.extend
+
+    if para:
+        pars=importlib.import_module('.%s'%(para),'source')
 
     var=ajust_var(data,varname,date_str,lev)
 
-    pn.plotsize(plotdef,wf,hf,cmmais)
+    if vmulti:
+        var=var*vmulti
+
+    pn.plotsize(pars.plotdef,pars.wf,pars.hf,pars.cmmais)
 
     fig = plt.figure()
-    ax  = fig.add_subplot(1, 1, 1, projection=projection)
+    ax  = fig.add_subplot(1, 1, 1, projection=pars.projection)
     #ax  = plt.axes(projection=projection)
 
     ax=def_axis_1(ax)
@@ -56,11 +61,12 @@ def cartopy_plot(data,varname,date_str=[],lats=[],lons=[],lev=[],bcolor=[],lat=[
     #Axis definitions
     ax,levels,latitude,longitude=axis_def(ax,var,bcolor,lats,lat,lons,lon)
 
-    filled=ax.contourf(longitude, latitude, var[0,0,:,:], levels=levels,
-                transform=ccrs.PlateCarree(),
-                cmap=color,alpha=1.0,extend='both')
 
-    lines  = ax.contour(longitude, latitude, var[0,0,:,:], levels=filled.levels,
+    filled=ax.contourf(longitude, latitude, var[0,:,:], levels=levels,
+                transform=ccrs.PlateCarree(),
+                cmap=color,alpha=1.0,extend=extend)
+
+    lines  = ax.contour(longitude, latitude, var[0,:,:], levels=filled.levels,
                         colors=['black'] ,alpha=0.8,linewidths=0.5,
                         transform=ccrs.PlateCarree())
 
@@ -69,38 +75,65 @@ def cartopy_plot(data,varname,date_str=[],lats=[],lons=[],lev=[],bcolor=[],lat=[
         CB=fig.colorbar(filled, orientation='vertical',shrink=0.5)
         CB.set_ticks(levels)
 
+        if units:
+
+            CB.ax.set_title(r'%s'%units,fontsize=6)
+
+        else:
+            CB.ax.set_title(r'%s'%var.units,fontsize=6)
+
         # Add a colorbar for the filled contour.
         #fig.colorbar(filled, orientation='horizontal',shrink=0.5)
 
-    ax.set_title("%s"%(plotname),fontsize=8)
+    if plotname:
+        plon=plotname
+    else:
+        if lev:
+            plon='%s_%s_%s_%shpa'%(data.name.values,varname,date_str,lev)
+        else:
+            plon='%s_%s_%s'%(data.name.values,varname,date_str)
 
-    fig.savefig('%s%s.pdf'%(out,figname),bbox_inches='tight', format='pdf', dpi=200)
+    ax.set_title("%s"%(plon),fontsize=6)
+    #else 
+
+    if figname:
+        fign=figname
+    else:
+        if lev:
+            fign='contour_%s_%s_%s_%s'%(data.name.values,varname,date_str,lev)
+        else:
+            fign='contour_%s_%s_%s'%(data.name.values,varname,date_str)
+    fig.savefig('%s/%s.pdf'%(pars.out_fig,fign),bbox_inches='tight', format='pdf', dpi=200)
 
                
     return fig     
 
-def cartopy_qflux(u,v,data=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lons=[],bcolor=[],lat=[],lon=[],plotname='',figname='',color='RdBu_r',out='',cbar=True):
+def cartopy_vector(u_name,v_name,data,data2=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lons=[],bcolor=[],lat=[],lon=[],plotname='',color='RdBu_r',cbar=True,para=[],figname=[]):
 
-    u=u[0,:,:]
-    v=v[0,:,:]
-    #u=ajust_var(u,'p71.162',date_str,lev)
-    #v=ajust_var(v,'p72.162',date_str,lev)
+    global pars
 
-    pn.plotsize(plotdef,wf,hf,cmmais)
+
+    if para:
+        pars=importlib.import_module('.%s'%(para),'source')
+
+    u=ajust_var(data,u_name,date_str,lev)
+    v=ajust_var(data,v_name,date_str,lev)
+
+    pn.plotsize(pars.plotdef,pars.wf,pars.hf,pars.cmmais)
 
     fig = plt.figure()
-    ax  = plt.axes(projection=projection)
+    ax  = plt.axes(projection=pars.projection)
 
     ax  = def_axis_states(ax)
 
     ax,levels,latitude,longitude=axis_def(ax,u,bcolor,lats,lat,lons,lon)
 
-    if(len(data)==1):
+    if(len(data2)==1):
 
-        data = np.sqrt(u**2 + v**2)
+        data2 = np.sqrt(u**2 + v**2)
 
 
-    filled=ax.contourf(longitude, latitude, data[:,:], levels=levels,
+    filled=ax.contourf(longitude, latitude, data2[0,:,:], levels=levels,
                 transform=ccrs.PlateCarree(),
                 #cmap='coolwarm',alpha=1.0)
                 #cmap='Spectral_r',alpha=1.0)
@@ -111,9 +144,9 @@ def cartopy_qflux(u,v,data=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lon
 
     #qv = ax.quiver(lons, lats ,datau.values, datav.values, transform=ccrs.PlateCarree(),color='black',scale=250, width=0.0035)#,headlength=0.05)
 
-    npp=10
+    npp=pars.npp
 
-    qv = ax.quiver(longitude[::npp], latitude[::npp] ,u[::npp,::npp].values, v[::npp,::npp].values, transform=ccrs.PlateCarree(),color='black',scale=scale, width=width)#,headlength=0.05)
+    qv = ax.quiver(longitude[::npp], latitude[::npp] ,u[0,::npp,::npp].values, v[0,::npp,::npp].values, transform=ccrs.PlateCarree(),color='black',scale=scale, width=width)#,headlength=0.05)
 
     #ax.quiverkey(qv, X=1.00, Y=1.10, U=100,label=r'100[kgkg$^{-1}$ms$^{-1}$Pa]', labelpos='E',fontproperties={'size':5})
     ax.quiverkey(qv, X=1.05, Y=1.02, U=10,label=r'10', labelpos='E',fontproperties={'size':5}, labelsep=0.01)
@@ -125,13 +158,23 @@ def cartopy_qflux(u,v,data=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lon
         CB=fig.colorbar(filled, orientation='vertical',shrink=0.5)
         CB.set_ticks(levels)
 
-    ax.set_title("%s"%(plotname),fontsize=6)
+    if plotname:
+        plon=plotname
+    else:
+        plon='%s_%s_%s_%s'%(data.name.values,u_name,v_name,date_str)
 
-    fig.savefig('%s%s.pdf'%(out,figname),bbox_inches='tight', format='pdf', dpi=200)
+    ax.set_title("%s"%(plon),fontsize=6)
+    #else 
+
+    if figname:
+        fign=figname
+    else:
+        fign='vector_%s_%s_%s_%s'%(data.name.values,u_name,v_name,date_str)
+    fig.savefig('%s/%s.pdf'%(pars.out_fig,fign),bbox_inches='tight', format='pdf', dpi=200)
                
     return fig,qv     
 
-def cartopy_vector(u,v,data=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lons=[],bcolor=[],lat=[],lon=[],plotname='',figname='',color='RdBu_r',out='',cbar=True):
+def cartopy_vector_uv(u,v,data=[0],date_str=[],lev=[],scale=1, width=0.4,lats=[],lons=[],bcolor=[],lat=[],lon=[],plotname='',figname='',color='RdBu_r',out='',cbar=True):
 
     u=ajust_var(u,'u',date_str,lev)
     v=ajust_var(v,'v',date_str,lev)
@@ -220,13 +263,14 @@ def narrow_q(q,plotname='',figname='',out='',label=''):
 
 def ajust_var(data,varname,date_str=[],lev=[]):
 
-    #var=getattr(data,varname)
-    var=data[varname]
-
+    var=getattr(data,varname)
+    
     if lev: 
         var= var.sel(level=var.level.isin([lev]))
+        var= np.squeeze(var,1)
     else: 
         var=var 
+
 
     if date_str: 
 
@@ -239,7 +283,7 @@ def ajust_var(data,varname,date_str=[],lev=[]):
 
     else:
 
-        var= var.isel( time=[0])
+        var= var.isel(time=[0])
 
     return var
 

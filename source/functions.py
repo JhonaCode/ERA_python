@@ -3,24 +3,27 @@ import xarray as xr
 import datetime as dt
 import pandas as pd
 
-def mean_hours_xr(data,day):
+def mean_hours_xr(data,name,day):
 
+    """
+    data=data to mean 
+    day =day of the new metric in a reference time.
+    """
 
     hour =[0,4,8,12,16,20]
-    hours=['00','04','08','12','16','20']
+    hours=['00','04','08','12','16','20',]
 
     var=[]
 
     k=0
     for j in hour: 
 
-        time='2024-01-%sT%s:00'%(day,hours[k])
+        time='%sT%s:00'%(day,hours[k])
         dd = dt.datetime.strptime(time,"%Y-%m-%dT%H:%M")
         dd = pd.to_datetime(dd) 
 
-
         tomean=data.sel(time=data.time.dt.hour.isin([j]),method='nearest')
-        mean=tomean.mean(dim='time')
+        mean= tomean.mean(dim='time')
         mean= mean.assign_coords(time = dd)
         mean= mean.expand_dims(dim="time")
 
@@ -38,7 +41,9 @@ def mean_hours_xr(data,day):
 
         k+=1
 
-    var = xr.combine_by_coords(var
+    var = xr.combine_by_coords(var)
+
+    var['name'] = name
 
     return var
 
